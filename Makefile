@@ -60,10 +60,26 @@ CFLAGS+=-O3 -std=c11 -pedantic -Wall -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=6
 
 # Uncomment for OS X:
 # It is not allowed to install to /usr/bin on OS X any longer (SIP):
+
 #CC=cc
 #CFLAGS+=-O2 -Wall -fomit-frame-pointer -no-cpp-precomp
 #LDFLAGS+=
 #MANDIR=${PREFIX}/share/man
+
+# tvOS
+TVOS_SDK		:= appletvos
+TVOS_SDK_PATH	:= $(shell /usr/bin/xcrun --sdk $(TVOS_SDK) --show-sdk-path)
+TVOS_CFLAGS+=-arch arm64 -isysroot "$(TVOS_SDK_PATH)" -mappletvos-version-min=9.0 -O3
+TVOS_LDFLAGS+=-arch arm64 -isysroot "$(TVOS_SDK_PATH)" -mappletvos-version-min=9.0 -O3
+
+# iOS:
+IOS_CC=clang
+IOS_SDK         := iphoneos
+IOS_SDK_PATH   	:= $(shell /usr/bin/xcrun --sdk $(IOS_SDK) --show-sdk-path)
+IOS_CFLAGS		:= -arch arm64 -isysroot "$(IOS_SDK_PATH)" -miphoneos-version-min=8.1 -O3
+IOS_LDFLAGS		:= -arch arm64 -isysroot "$(IOS_SDK_PATH)" -miphoneos-version-min=8.1 -O3
+
+FILES			:= $(wildcard *.c)
 
 # Uncomment for HP/UX:
 #prefix=/opt
@@ -91,8 +107,26 @@ CFLAGS+=-O3 -std=c11 -pedantic -Wall -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=6
 
 #------------------------------------------------------------
 
-all:	tree
+all:	tree ios tvos
 
+ios: $(FILES)
+	@echo "[i] Building $@..."
+	@clang $(FILES) -o $@ $(IOS_CFLAGS) $(IOS_LDFLAGS)
+	@strip $@
+	@ldid -S $@
+	@echo "[i] Updating ios folder..."
+	@mkdir -p build/$@
+	@mv $@ build/$@/tree
+	
+tvos: $(FILES)
+	@echo "[i] Building $@..."
+	@clang $(FILES) -o $@ $(TVOS_CFLAGS) $(TVOS_LDFLAGS)
+	@strip $@
+	@ldid -S $@
+	@echo "[i] Updating tvos folder..."
+	@mkdir -p build/$@
+	@mv $@ build/$@/tree
+	
 tree:	$(OBJS)
 	$(CC) $(LDFLAGS) -o $(TREE_DEST) $(OBJS)
 
@@ -100,7 +134,7 @@ $(OBJS): %.o:	%.c tree.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(TREE_DEST) *.o *~
+	rm -f $(TREE_DEST) *.o *~ ios tvos
 
 install: tree
 	$(INSTALL) -d $(DESTDIR)
